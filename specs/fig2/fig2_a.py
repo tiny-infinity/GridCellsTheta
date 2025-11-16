@@ -5,8 +5,8 @@ It consists of a grid search with 1,200 simulations, each having 4 trials.
 Simulation was run on a cluster."
 """
 def generate_mult_input_params()-> dict:
-    dc_range_arr = len(np.concatenate((np.linspace(-2.7e-3,0,1000,endpoint=False),
-                                       np.linspace(0,2e-2,200))))
+    dc_range_arr = np.concatenate((np.linspace(-2.7e-3,0,1000,endpoint=False),
+                                       np.linspace(0,2e-2,200)))
     n_trials = 4
     sim_num = 0
     sim_dur = float(60000)
