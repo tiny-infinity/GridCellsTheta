@@ -1,0 +1,26 @@
+[project]
+name = "GridCellsCond"
+version = "0.1.0"
+description = "Conductance-based model of grid cells"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "NEURON>=9.0; sys_platform == 'linux' or sys_platform == 'darwin' or sys_platform == 'cygwin'",
+    "scipy>=1.13",
+    "numpy>=1.26.4",
+    "h5py>=3.12",
+    "matplotlib>=3.9",
+    "seaborn>=0.13.2",
+    "ipykernel>=6.29.5",
+    "pickleshare>=0.7.5",
+    "sphinx>=8.1.3",
+    "sphinx-rtd-theme>=3.0.2",
+    "furo>=2024.8.6",
+    "sphinx-inline-tabs>=2023.4.21",
+    "joblib"
+]
+[dependency-groups]
+other = [
+  "fabric2",
+  "PyQt6"
+]

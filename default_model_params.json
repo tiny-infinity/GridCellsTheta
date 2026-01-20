@@ -76,7 +76,11 @@
     "is_mean_asym_factor":0,
     
     "extra_params":{},
-    "netcon_delay":1
+    "netcon_delay":1,
+
+    "global_inhib_dc":2.224e-3,
+    "ext_Amp_i_theta":1.035e-4,
+    "ext_is_peak":1
 }
 
 

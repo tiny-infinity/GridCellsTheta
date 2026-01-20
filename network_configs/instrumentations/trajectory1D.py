@@ -40,14 +40,12 @@ class Trajectory1D:
 
     def vel_to_dc_fit(self, input_vel):
         #spline
-        spline_params=s_utils.json_read("input_data/vi_transform/spline_params.json")
+        spline_params = s_utils.json_read("input_data/vi_transform/spline_params.json")
         dc_out=BSpline(*list(spline_params.values()))(input_vel)
         other_ring_mask = np.isnan(input_vel)
         dc_out[other_ring_mask] = self.params["vel_integ_or"]
 
         return dc_out
-
-
 
     def decompose_vel(self):
         self.right_vel = self.vel_input.copy()
@@ -72,7 +70,7 @@ class Trajectory1D:
         self.decompose_vel()
         self.right_dc = self.vel_to_dc_fit(self.right_vel)
         self.left_dc = self.vel_to_dc_fit(-1 * self.left_vel)
-        self.intrnrn_dc=np.full_like(self.t, self.params["intrnrn_dc_amp"])
+        self.intrnrn_dc = np.full_like(self.t, self.params["intrnrn_dc_amp"])
         if self.params["init_allothetic_input"]:
             self.allothetic_input()
 
