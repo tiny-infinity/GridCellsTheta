@@ -31,6 +31,7 @@ def generate_input_params():
         "stell_theta_omega":0.012,
         "init_noise_seed":30079,
         "noise_seed":21404,
+        "save_conn_matrix":True,
         "record_handle_intrnrn":{"intrnrn_v": {"state": True,"cells_to_record":"all"},
                                  "intrnrn_theta_i": {"state": True,"cells_to_record":"all"}},
         "record_handle_stell":{"stell_v": {"state": True,"cells_to_record":"all"},
