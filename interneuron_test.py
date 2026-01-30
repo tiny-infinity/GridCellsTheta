@@ -11,10 +11,10 @@ h.celsius = 37
 test_intrnrn = interneuron_amb.Interneuron(1)
 theta_ic = h.IClamp(test_intrnrn.soma(0.5))
 theta_ic.dur = 1e9
-freq = 5
-time_ms = 10000
-osc_amp = 1e-4
-baseline_amp = 2e-4
+freq = 10
+time_ms = 1000
+osc_amp = 10e-4
+baseline_amp = 0.8e-3
 T, num_steps = time_ms/1000,time_ms
 time_arr = np.linspace(0,T,num_steps)
 curr_arr = osc_amp * np.sin(2 * np.pi * freq * time_arr) + np.full_like(time_arr, baseline_amp)
@@ -34,7 +34,7 @@ test_intrnrn_v = h.Vector().record(test_intrnrn.soma(0.5)._ref_v)
 time = h.Vector().record(h._ref_t)
 
 h.finitialize(-65)
-h.continuerun(10000)
+h.continuerun(1000)
 fig,ax = plt.subplots(figsize=(10,6))
 ax1 = ax.twinx()
 ax.plot(time, i_theta.to_python(), color='gray', linestyle='--', label='Theta Input')
