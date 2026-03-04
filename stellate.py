@@ -18,7 +18,7 @@ class Stellate(Cell):
             sec.cm = 1.5  # Specific capacitance [uf/cm2]
 
         # add channels
-        self.soma.insert("i_theta_stell")
+        #self.soma.insert("i_theta_stell")
         self.soma.insert("stellate_mech")
 
         self.soma.ena = 55  # if not set here, neuron uses default values.
