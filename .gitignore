@@ -188,7 +188,7 @@ analysis/figures/**/*
 docs/build/*
 !docs/build/.gitkeep
 
-
+hafting_grid_cell_data/hafting_et_al_2008_high_res_eeg_sampled_at_4800hz/*
 *.EGF
 *.ef2
 *.ef3
