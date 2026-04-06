@@ -189,4 +189,15 @@ docs/build/*
 !docs/build/.gitkeep
 
 
+*.EGF
+*.ef2
+*.ef3
+*.ef4
+*.egf
+*.mat
+*.mat
+*.xlsx
+*.m
+
+
 
