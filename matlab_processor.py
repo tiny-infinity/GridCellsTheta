@@ -18,6 +18,7 @@ class GridCellAnalyzer:
         pos_t = mat['post'].flatten()
         dur_sec = pos_t[-1]
         
+        # Regex to find spike time keys (e.g., spks_t1c1)
         cell_keys = [k for k in mat.keys() if re.search(r'spks_t\dc\d', k, re.IGNORECASE)]
         selected_key = cell_keys[cell_idx]
         spikes = mat[selected_key].flatten()
@@ -32,7 +33,7 @@ class GridCellAnalyzer:
         }
 
     def _filter_theta(self):
-        # 6-10 Hz Bandpass filter for local EEG theta 
+        # 6-10 Hz Bandpass filter for EEG theta 
         taps = firwin(501, [6, 10], pass_zero=False, fs=self.data['fs'], window='hamming')
         self.theta = filtfilt(taps, 1.0, self.data['eeg'])
         
@@ -42,21 +43,22 @@ class GridCellAnalyzer:
         self.phase_deg = np.rad2deg(phase) % 360 
 
     def analyze_direction(self, direction='out'):
-        # Calculate Velocity and filter for speed > 10 cm/s 
+        # Velocity calculation and filtering
         dx = np.diff(self.data['pos_x'])
         dt = np.diff(self.data['pos_t'])
         vel = np.append(dx/dt, (dx/dt)[-1])
         
+        # Determine movement direction mask
         speed_mask = (vel > 10.0) if direction == 'out' else (vel < -10.0)
         
-        # 1D Rate Map (5cm bins, No Smoothing) 
+        # 1D Rate Map for field detection
         bin_size = 5
         num_bins = int(self.track_len / bin_size)
         bin_edges = np.linspace(-self.half_len, self.half_len, num_bins + 1)
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
         
         occ, _ = np.histogram(self.data['pos_x'][speed_mask], bins=bin_edges)
-        occ = occ / 50.0 
+        occ = occ / 50.0 # Standard sampling rate conversion
         
         spike_vel = np.interp(self.data['spikes'], self.data['pos_t'], vel)
         dir_filter = (spike_vel > 10.0) if direction == 'out' else (spike_vel < -10.0)
@@ -66,135 +68,93 @@ class GridCellAnalyzer:
         spk_count, _ = np.histogram(spk_x, bins=bin_edges)
         rate_1d = np.divide(spk_count, occ, out=np.zeros_like(spk_count, dtype=float), where=occ!=0)
         
-        # Find and Validate Fields based on 10% peak/1% drop rules [cite: 710, 840]
-        fields = self._extract_fields(rate_1d, bin_centers, dir_spks, spk_x)
-    
-        print(f"Direction: {direction.upper()} | Valid {direction}-fields found: {len(fields)}")
-        
-        return fields
+        return self._extract_fields(rate_1d, bin_centers, dir_spks, spk_x)
 
     def _extract_fields(self, rate_1d, centers, dir_spks, spk_x):
         max_rate = np.max(rate_1d)
         fields = []
         visited = np.zeros(len(rate_1d), dtype=bool)
-        distal_limit = self.half_len * 0.95 
 
         for i in range(len(rate_1d)-2):
-            if visited[i] or not np.all(rate_1d[i:i+3] > 0.1 * max_rate): continue
+            if visited[i] or rate_1d[i] < 0.1 * max_rate: continue
             
-            start, end = i, i+2
-            while start > 0 and not (rate_1d[start-1] < 0.01*max_rate or rate_1d[start-1] > rate_1d[start]): start -= 1
-            while end < len(rate_1d)-1 and not (rate_1d[end+1] < 0.01*max_rate or rate_1d[end+1] > rate_1d[end]): end += 1
+            # Find start and end where rate drops below 10% peak
+            start, end = i, i
+            while start > 0 and rate_1d[start-1] > 0.1 * max_rate: start -= 1
+            while end < len(rate_1d)-1 and rate_1d[end+1] > 0.1 * max_rate: end += 1
             
             x_range = (centers[start], centers[end])
             visited[np.arange(start, end+1)] = True
             
-            # Validation: 50 spike min and 5% distal exclusion 
+            # Validation and Phase extraction
             spikes_in_mask = (spk_x >= x_range[0]) & (spk_x <= x_range[1])
-            if np.sum(spikes_in_mask) < 50 or abs(x_range[0]) > distal_limit or abs(x_range[1]) > distal_limit:
-                continue 
+            if np.sum(spikes_in_mask) < 40: continue 
             
-            # Phase assignment for valid spikes [cite: 1443]
             field_spk_times = dir_spks[spikes_in_mask]
             eeg_t = np.linspace(0, self.data['pos_t'][-1], len(self.phase_deg))
             field_spk_phase = np.interp(field_spk_times, eeg_t, self.phase_deg)
             
             fields.append({
-                'x': spk_x[spikes_in_mask],
+                'x_abs': spk_x[spikes_in_mask],
                 'phase': field_spk_phase,
-                'normalized_x': (spk_x[spikes_in_mask] - x_range[0]) / (x_range[1] - x_range[0]) * 100
+                'bounds': x_range
             })
         return fields
-    
-def quantify_precession_with_details(field_data):
-    x = field_data['normalized_x']
+
+def quantify_precession(field_data):
+    # Quantify using absolute X to get slope in deg/cm
+    x = field_data['x_abs']
     phases = field_data['phase']
     
-    best_r2, best_slope, best_r, best_intercept, best_shift = -1, 0, 0, 0, 0
+    best_r2, best_slope, best_intercept, best_shift = -1, 0, 0, 0
     
-    for shift in range(360):
+    # Standard 360-degree rotation to find best linear fit for circular data
+    for shift in range(0, 360, 2):
         shifted_phases = (phases + shift) % 360
         slope, intercept, r_val, _, _ = linregress(x, shifted_phases)
-        r2 = r_val**2
-        
-        if r2 > best_r2:
-            best_r2, best_slope, best_r, best_intercept, best_shift = r2, slope, r_val, intercept, shift
+        if r_val**2 > best_r2:
+            best_r2, best_slope, best_intercept, best_shift = r_val**2, slope, intercept, shift
             
-    return {
-        'slope': best_slope,
-        'intercept': best_intercept,
-        'r2': best_r2,
-        'correlation': best_r,
-        'best_shift': best_shift
-    }
+    return {'slope': best_slope, 'r2': best_r2, 'shift': best_shift, 'intercept': best_intercept}
 
-def plot_fitted_precession(field_data, fit_results, direction_label):
+def plot_moser_style(fields, direction_label, cell_id):
     """
-    Plots the normalized position vs. shifted phase with the regression line.
+    Plots absolute position vs phase (720 deg) to match Moser Lab papers.
     """
-    x = field_data['normalized_x']
-    # Use the best shift found during quantification to align the spikes
-    best_shift = fit_results['best_shift']
-    shifted_phases = (field_data['phase'] + best_shift) % 720
-    
-    plt.figure(figsize=(8, 5))
-    
-    # Plot the spikes at the optimal rotation
-    plt.scatter(x, shifted_phases, color='black', alpha=0.5, s=20, label='Spikes (Optimal Rotation)')
-    
-    # Plot the regression line
-    # Generate x-values for the line (0 to 100%)
-    line_x = np.array([0, 100])
-    line_y = fit_results['slope'] * line_x + fit_results['intercept']
-    
-    plt.plot(line_x, line_y, color='red', linewidth=2, 
-             label=f"Fit (R²={fit_results['r2']:.3f}, r={fit_results['correlation']:.2f})")
-    
-    plt.title(f"Quantified Phase Precession ({direction_label.upper()})")
-    plt.xlabel("Position in Field (%)")
-    plt.ylabel("Shifted Theta Phase (deg)")
-    plt.ylim(0, 720)
-    plt.xlim(0, 100)
-    plt.legend()
-    plt.grid(True, linestyle='--', alpha=0.6)
-    plt.show()
-
-def plot_all_fields(fields, direction_label, cell_id):
     if not fields:
-        print(f"No valid {direction_label} fields found for {cell_id}.")
+        print(f"No fields for {direction_label}")
         return
 
-    plt.figure(figsize=(10, 6))
-
-    colors = plt.cm.get_cmap('tab10', len(fields))
+    plt.figure(figsize=(14, 6))
     
     for i, field in enumerate(fields):
-        label = f"Field {i+1}"
-        # Plot two cycles (0-720 degrees) 
-        plt.scatter(field['normalized_x'], field['phase'], 
-                    color=colors(i), alpha=0.4, s=15, label=label)
-        plt.scatter(field['normalized_x'], field['phase'] + 360, 
-                    color=colors(i), alpha=0.4, s=15)
-
-    plt.title(f"Stacked Phase Precession ({direction_label.upper()}): {cell_id}")
-    plt.xlabel("Position in Field (%)")
+        x = field['x_abs']
+        p = field['phase']
+        
+        # Plot two cycles (0-720)
+        plt.scatter(x, p, color='black', s=12, alpha=0.6)
+        plt.scatter(x, p + 360, color='black', s=12, alpha=0.6)
+        
+        # Optional: Add regression line for each field
+        res = quantify_precession(field)
+        line_x = np.array([field['bounds'][0], field['bounds'][1]])
+        # Note: Intercept needs careful handling with the shift, 
+        # showing it here primarily for the scatter trend.
+        
+    plt.title(f"Phase Precession {direction_label.upper()} | {cell_id}")
+    plt.xlabel("Position (cm)")
     plt.ylabel("Theta Phase (deg)")
-    plt.ylim(0, 720) # Standard 0-720 degree view
-    plt.xlim(0, 100)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.ylim(0, 720)
+    plt.yticks([0, 180, 360, 540, 720])
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.tight_layout()
     plt.show()
 
-
-analyzer = GridCellAnalyzer("hafting_grid_cell_data/l2c3_3.mat", cell_idx=1, track_len=320)
+# --- Execution ---
+# Replace path with your actual filename
+analyzer = GridCellAnalyzer("hafting_grid_cell_data/l2c5_0.mat", cell_idx=0)
 in_fields = analyzer.analyze_direction('in')
 out_fields = analyzer.analyze_direction('out')
 
-plot_all_fields(in_fields, 'in', analyzer.data['cell_id'])
-plot_all_fields(out_fields, 'out', analyzer.data['cell_id'])
-
-if in_fields:
-    for i, field in enumerate(in_fields):
-        results = quantify_precession_with_details(field)
-        print(f"Field {i+1} Slope: {results['slope']:.3f} deg/%")
-        plot_fitted_precession(field, results, f"In-Field {i+1}")
+plot_moser_style(in_fields, 'in', analyzer.data['cell_id'])
+plot_moser_style(out_fields, 'out', analyzer.data['cell_id'])

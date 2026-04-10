@@ -66,6 +66,20 @@ for i in range(n_intrnrn):
     for j in range(N_per_sheet):
         theta_i,theta_j = (2*np.pi/N_per_sheet)*i,(2*np.pi/N_per_sheet)*j
         delta_theta=conn_utils.unsigned_arc_length(theta_i,theta_j)
+temp_mat = np.zeros((N_per_sheet, N_per_sheet))
+for i in range(N_per_sheet):
+    for j in range(n_intrnrn):
+        theta_i,theta_j = (2*np.pi/N_per_sheet)*i,(2*np.pi/N_per_sheet)*j
+        delta_theta=conn_utils.signed_arc_length(theta_i,theta_j)
+        temp_mat[i, j] = conn_utils.gaussian(delta_theta, si_peak, -si_mean, si_stdev)
+cnnct_si[N_per_sheet:, :] = temp_mat
+cnnct_si[np.abs(cnnct_si) < threshold] = 0
+
+
+#---------------------------------------------------------------------------------#
+cnnct_is = np.zeros((n_intrnrn, n_stell))
+
+for i in range(n_intrnrn):
         cnnct_is[i, j] = conn_utils.gaussian(delta_theta, is_peak, is_mean, is_stdev)
 
 cnnct_is[:, N_per_sheet:] = cnnct_is[:, :N_per_sheet]
