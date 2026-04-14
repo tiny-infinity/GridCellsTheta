@@ -3,6 +3,13 @@ import scipy.io as sio
 from scipy.signal import firwin, filtfilt, hilbert
 import re
 import matplotlib.pyplot as plt
+# Custom palette from your poster
+poster_colors = ['#2D5A82', '#A6192E', '#4A90E2', '#9013FE', '#417505']
+
+plt.rcParams['axes.prop_cycle'] = plt.cycler(color=poster_colors)
+plt.rcParams['axes.facecolor'] = 'white'
+plt.rcParams['grid.color'] = '#EEEEEE'
+plt.rcParams['axes.edgecolor'] = '#2D5A82'
 
 class HighDensityGridAnalyzer:
     def __init__(self, file_path, cell_idx, track_len=320):
@@ -85,14 +92,14 @@ class HighDensityGridAnalyzer:
         return spk_x, spk_phase
 
 def plot_full_track_precession(spk_x, spk_phase, direction, cell_id):
-    plt.figure(figsize=(15, 6))
+    plt.figure(figsize=(12, 6))
     
     # Plot two cycles (0-720) to show the 'slopes' clearly
     # Using small 's' and low 'alpha' to handle high spike density
-    plt.scatter(spk_x, spk_phase, color='black', s=3, alpha=1)
-    plt.scatter(spk_x, spk_phase + 360, color='black', s=3, alpha=1)
+    plt.scatter(spk_x, spk_phase, color='C0', s=3, alpha=1)
+    plt.scatter(spk_x, spk_phase + 360, color='C0', s=3, alpha=1)
     
-    plt.title(f"Full Track Phase Precession: {cell_id} ({direction.upper()})")
+    plt.title(f"Session ID 13120410 | Cell ID : {cell_id} ({direction.upper()})")
     plt.xlabel("Linearized Distance from Start (cm)")
     plt.ylabel("Theta Phase (deg)")
     
@@ -101,6 +108,7 @@ def plot_full_track_precession(spk_x, spk_phase, direction, cell_id):
     plt.yticks([0, 180, 360, 540, 720])
     plt.grid(True, axis='y', linestyle=':', alpha=0.7)
     plt.tight_layout()
+    plt.savefig('final_figs/HAFTING_t5c1.png',dpi=600)
     plt.show()
 
 # --- Execution ---
@@ -110,7 +118,5 @@ analyzer.plot_theta(0,10,20)
 x_out, p_out = analyzer.get_directional_data('out')
 plot_full_track_precession(x_out, p_out, 'out', analyzer.data['cell_id'])
 
-# Process 'In' direction
-x_in, p_in = analyzer.get_directional_data('in')
-plot_full_track_precession(x_in, p_in, 'in', analyzer.data['cell_id'])
+
 
